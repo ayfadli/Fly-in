@@ -1,0 +1,12 @@
+# .gitignore
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+
+# OS generated files
+.DS_Store
