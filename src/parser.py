@@ -1,5 +1,5 @@
 from typing import Dict
-from models import Zone, Connection
+from src.models import Zone, Connection
 import re
 import sys
 from rich.console import Console
@@ -24,6 +24,7 @@ class MapParser:
         self.has_parsed_zones: bool = False
 
         self.graph: Dict[str, Dict[str, int]] = {}
+        self.orig_conns: Dict[str, Dict[str, str]] = {}
 
     def parse(self) -> None:
         """The main method that opens the file and routes each line."""
@@ -219,6 +220,10 @@ class MapParser:
         self.zones[hub_name] = Zone(
             hub_name, x, y, is_start, is_end, zone_type, color, max_drones
         )
+        if is_start:
+            self.start_hub_name = hub_name
+        if is_end:
+            self.end_hub_name = hub_name
 
         self.graph[hub_name] = {}
 
@@ -306,3 +311,13 @@ class MapParser:
         else:
             self.graph[zoneA][zoneB] = capacity
             self.graph[zoneB][zoneA] = capacity
+
+            if zoneA not in self.orig_conns:
+                self.orig_conns[zoneA] = {}
+            if zoneB not in self.orig_conns:
+                self.orig_conns[zoneB] = {}
+
+            # wait, match.group(1) might be exactly A-B or B-A, whichever was written
+            # Let's just use match.group(1)
+            self.orig_conns[zoneA][zoneB] = match.group(1)
+            self.orig_conns[zoneB][zoneA] = match.group(1)
