@@ -1,111 +1,127 @@
-from typing import List, Tuple, Dict
 from collections import defaultdict
+from typing import Dict, List, Optional
+
 from rich.console import Console
-from rich.table import Table
-from rich.text import Text
 
-from src.models import Zone
+from src.colors import DIM, RESET, colorize, zone_color
+from src.drone import Drone
+from src.graph import Graph
+from src.pathfinder import Pathfinder
 
 
-def run_simulation(
-        paths: List[List[Tuple[int, str, str]]], zones: Dict[str, Zone]):
-    console = Console()
+class Simulation:
+    """Plans every drone's route and replays it turn by turn.
 
-    if not paths:
-        console.print("[red]No paths found to simulate.[/red]")
-        return
+    The mandatory step-by-step movement lines are written to stdout, one
+    per turn, exactly as required by the subject. Colored visual feedback
+    (per-turn recap and zone occupancy) is written to stderr so it never
+    pollutes the parseable output.
+    """
 
-    makespan = max(p[-1][0] for p in paths)
-    nb_drones = len(paths)
+    def __init__(self, graph: Graph, console: Optional[Console] = None) -> None:
+        self.graph = graph
+        self.drones: List[Drone] = []
+        self.console = console or Console(stderr=True)
 
-    # Pre-process paths to quickly get drone location at each turn
-    # paths[d] is a list of (turn, type, name)
+    def setup(self) -> None:
+        """Plan a conflict-free timeline for every drone."""
+        pathfinder = Pathfinder(self.graph)
+        for drone_id, timeline in enumerate(pathfinder.solve(), start=1):
+            drone = Drone(drone_id)
+            drone.set_timeline(timeline)
+            self.drones.append(drone)
 
-    drone_states = defaultdict(dict)
-    for d_idx, path in enumerate(paths):
-        d_id = d_idx + 1
-        for step in path:
-            t, loc_type, name = step
-            drone_states[d_id][t] = (loc_type, name)
+    def run(self) -> int:
+        """Step through every turn, printing the mandatory output and
+        colored visual feedback. Returns the total number of turns."""
+        if not self.drones:
+            self.setup()
 
-    for t in range(1, makespan + 1):
-        moves = []
+        total_turns = max((d.arrival_turn for d in self.drones), default=0)
 
-        # Determine drone movements for this turn
-        for d in range(1, nb_drones + 1):
-            if t in drone_states[d]:
-                loc_type, name = drone_states[d][t]
+        for turn in range(1, total_turns + 1):
+            raw_moves = []
+            colored_moves = []
+            for drone in self.drones:
+                label = self._movement_label(drone, turn)
+                if label is None:
+                    continue
+                raw_moves.append(f"D{drone.id}-{label}")
+                colored_moves.append(
+                    f"D{drone.id}-{self._colorize_label(label)}"
+                )
 
-                # Check if it moved or waited
-                # It waited if loc_type is 'zone' and previous state at t-1 was
-                # also 'zone' with same name
-                if t - 1 in drone_states[d]:
-                    prev_type, prev_name = drone_states[d][t - 1]
-                    if loc_type == 'zone' and prev_type == 'zone' and name == prev_name:
-                        continue  # wait
+            print(" ".join(raw_moves))
+            self._print_visual_feedback(turn, colored_moves)
 
-                # It moved! (either to a connection, or to a zone from connection, or to a zone from zone)
-                # The output format is D<ID>-<name>
-                moves.append(f"D{d}-{name}")
+        self.console.print(
+            f"[bold green]All {len(self.drones)} drones delivered "
+            f"in {total_turns} turns.[/bold green]"
+        )
+        return total_turns
 
-        # 1. Output the mandatory movement line
-        if moves:
-            print(" ".join(moves))
+    def _print_visual_feedback(
+        self, turn: int, colored_moves: List[str]
+    ) -> None:
+        moves_text = " ".join(colored_moves) if colored_moves else "(wait)"
+        occupancy = self._occupied_zones_text(turn)
+        self.console.print(
+            f"[dim]Turn[/dim] [bold]{turn:>3}[/bold]  {moves_text}"
+            f"  [dim]| zones:[/dim] {occupancy}",
+            markup=True,
+            highlight=False,
+        )
 
-        # 2. Output the visual representation
-        # To make it nice, we collect where everyone is at the end of turn t
-        console.print(f"\n[bold magenta]--- Turn {t} ---[/bold magenta]")
+    def _occupied_zones_text(self, turn: int) -> str:
+        buckets: Dict[str, List[int]] = defaultdict(list)
+        for drone in self.drones:
+            if drone.arrival_turn <= turn:
+                continue
+            event = drone.location_before(turn)
+            if event is None or event[1] != "zone":
+                continue
+            buckets[event[2]].append(drone.id)
 
-        zone_occupancy = defaultdict(list)
-        for d in range(1, nb_drones + 1):
-            # Find the latest state <= t
-            curr_t = t
-            while curr_t not in drone_states[d] and curr_t >= 0:
-                curr_t -= 1
-            if curr_t >= 0:
-                loc_type, name = drone_states[d][curr_t]
-                if loc_type == 'zone':
-                    zone_occupancy[name].append(f"D{d}")
-                elif loc_type == 'conn':
-                    zone_occupancy[f"Connection {name}"].append(f"D{d}")
+        if not buckets:
+            return "-"
 
-        table = Table(
-            show_header=True,
-            header_style="bold cyan",
-            title="Zone States")
-        table.add_column("Location")
-        table.add_column("Type")
-        table.add_column("Drones")
+        parts = []
+        for name, ids in buckets.items():
+            zone = self.graph.zones.get(name)
+            label = colorize(name, zone_color(zone)) if zone else name
+            drone_ids = ",".join(f"D{i}" for i in ids)
+            parts.append(f"{label}({drone_ids})")
+        return " ".join(parts)
 
-        # Sort locations: start -> other zones -> connections -> end
-        sorted_locations = []
-        for loc in zone_occupancy.keys():
-            if loc.startswith("Connection"):
-                sorted_locations.append((3, loc))
+    def _colorize_label(self, label: str) -> str:
+        zone = self.graph.zones.get(label)
+        if zone is not None:
+            return colorize(label, zone_color(zone))
+        return f"{DIM}{label}{RESET}"
+
+    def _movement_label(self, drone: Drone, turn: int) -> Optional[str]:
+        """The zone/connection this drone moved to at `turn`, or None if
+        it merely waited in place that turn."""
+        zone_event: Optional[str] = None
+        conn_event: Optional[str] = None
+        for event_turn, kind, name in drone.timeline:
+            if event_turn != turn:
+                continue
+            if kind == "zone":
+                zone_event = name
             else:
-                z = zones[loc]
-                if z.is_start:
-                    sorted_locations.append((1, loc))
-                elif z.is_end:
-                    sorted_locations.append((4, loc))
-                else:
-                    sorted_locations.append((2, loc))
+                conn_event = name
 
-        sorted_locations.sort()
+        if zone_event is not None:
+            if zone_event == self._zone_before(drone, turn):
+                return None
+            return zone_event
+        return conn_event
 
-        for _, loc in sorted_locations:
-            drones_str = ", ".join(zone_occupancy[loc])
-            if loc.startswith("Connection"):
-                table.add_row(loc, "Connection", drones_str)
-            else:
-                z = zones[loc]
-                color = z.color if z.color else "white"
-                loc_text = Text(loc, style=color)
-                type_text = Text(z.zone_type, style=color)
-                table.add_row(loc_text, type_text, drones_str)
-
-        console.print(table)
-        console.print("")
-
-    console.print(
-        f"[bold green]✅ Simulation complete in {makespan} turns![/bold green]")
+    @staticmethod
+    def _zone_before(drone: Drone, turn: int) -> Optional[str]:
+        latest: Optional[str] = None
+        for event_turn, kind, name in drone.timeline:
+            if kind == "zone" and event_turn < turn:
+                latest = name
+        return latest

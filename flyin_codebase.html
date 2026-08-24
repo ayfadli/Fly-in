@@ -1,0 +1,1242 @@
+<title>Fly-in Codebase</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #e9edf3;
+    --surface-3: #dbe1e9;
+    --border: #d4dae2;
+    --text: #131a22;
+    --text-muted: #57667a;
+    --text-faint: #8496ac;
+    --accent: #b8710c;
+    --accent-soft: #f7e6c9;
+    --code-text: #1f2937;
+    --z-normal: #57667a;
+    --z-restricted: #c43d34;
+    --z-priority: #1e8a5f;
+    --z-blocked: #7c8798;
+    --shadow: 0 1px 2px rgba(20, 30, 45, 0.06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d131a;
+      --surface: #141c25;
+      --surface-2: #1b2530;
+      --surface-3: #263240;
+      --border: #2b3742;
+      --text: #e7ecf3;
+      --text-muted: #93a4b8;
+      --text-faint: #5e7086;
+      --accent: #f0a93b;
+      --accent-soft: rgba(240, 169, 59, 0.14);
+      --code-text: #dce6f0;
+      --z-normal: #93a4b8;
+      --z-restricted: #f2786c;
+      --z-priority: #4fce95;
+      --z-blocked: #8592a3;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0d131a;
+    --surface: #141c25;
+    --surface-2: #1b2530;
+    --surface-3: #263240;
+    --border: #2b3742;
+    --text: #e7ecf3;
+    --text-muted: #93a4b8;
+    --text-faint: #5e7086;
+    --accent: #f0a93b;
+    --accent-soft: rgba(240, 169, 59, 0.14);
+    --code-text: #dce6f0;
+    --z-normal: #93a4b8;
+    --z-restricted: #f2786c;
+    --z-priority: #4fce95;
+    --z-blocked: #8592a3;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--accent-soft); }
+
+  a { color: var(--accent); }
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    text-wrap: balance;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+
+  p { margin: 0 0 1em; max-width: 66ch; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ---------- layout shell ---------- */
+
+  .shell {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+    display: grid;
+    grid-template-columns: 208px minmax(0, 1fr);
+    gap: 56px;
+    align-items: start;
+  }
+
+  .rail {
+    position: sticky;
+    top: 28px;
+    padding-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .rail .brand {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 14px;
+  }
+
+  .rail a {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 7px 0 7px 12px;
+    border-left: 2px solid var(--border);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .rail a:hover { color: var(--text); }
+
+  .rail a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  main { min-width: 0; padding-top: 40px; }
+
+  .content { max-width: 780px; }
+
+  section { margin-bottom: 88px; scroll-margin-top: 24px; }
+  section:last-of-type { margin-bottom: 40px; }
+
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-size: 1.45rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 18px;
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    margin: 0 0 6px;
+  }
+
+  h3 .path { color: var(--text-faint); font-weight: 500; }
+
+  .lede {
+    color: var(--text-muted);
+    font-size: 1.02rem;
+    margin-bottom: 8px;
+  }
+
+  /* ---------- hero / overview ---------- */
+
+  .hero h1 {
+    font-size: 2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    margin-bottom: 10px;
+  }
+
+  .hero .dek {
+    color: var(--text-muted);
+    font-size: 1.08rem;
+    max-width: 60ch;
+    margin-bottom: 28px;
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .stat {
+    background: var(--surface);
+    padding: 14px 16px;
+  }
+
+  .stat .n {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    font-size: 1.28rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  .stat .l {
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 3px;
+  }
+
+  /* ---------- figures / diagrams ---------- */
+
+  figure {
+    margin: 28px 0;
+    padding: 0;
+  }
+
+  .diagram-frame {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    box-shadow: var(--shadow);
+  }
+
+  figure svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: var(--text);
+  }
+
+  figcaption {
+    margin-top: 10px;
+    font-size: 0.86rem;
+    color: var(--text-muted);
+    max-width: 66ch;
+  }
+
+  .fig-accent { color: var(--accent); }
+
+  /* ---------- code blocks ---------- */
+
+  .code-block { margin: 16px 0; }
+
+  .code-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+  }
+
+  .code-label .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+  }
+
+  pre {
+    margin: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    overflow-x: auto;
+  }
+
+  pre code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--code-text);
+    background: none;
+    white-space: pre;
+  }
+
+  code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    background: var(--surface-2);
+    padding: 0.12em 0.4em;
+    border-radius: 4px;
+    font-size: 0.86em;
+  }
+
+  .kw { color: var(--accent); }
+  .cm { color: var(--text-faint); font-style: italic; }
+  .st { color: var(--z-priority); }
+
+  /* ---------- cards ---------- */
+
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 22px 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .card .role {
+    color: var(--text-muted);
+    font-size: 0.94rem;
+    margin: 6px 0 16px;
+  }
+
+  .notes {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+
+  .notes li {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .notes li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .notes strong { color: var(--text); font-weight: 600; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  /* short illustrative snippets inside a card: wrap instead of forcing
+     horizontal scroll on an already-narrow column */
+  .card pre { overflow-x: visible; }
+  .card pre code { white-space: pre-wrap; word-break: break-word; }
+
+  /* ---------- legend chips ---------- */
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 14px 0 22px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8rem;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 5px 11px 5px 9px;
+    border-radius: 100px;
+  }
+
+  .chip .sw {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  /* ---------- tables ---------- */
+
+  .table-wrap { overflow-x: auto; margin: 18px 0; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.88rem;
+    min-width: 480px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  th {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    font-weight: 600;
+  }
+
+  td.num, th.num {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  td.ok { color: var(--z-priority); font-family: ui-monospace, monospace; }
+
+  /* ---------- terminal mock ---------- */
+
+  .terminal {
+    background: #0d131a;
+    border: 1px solid #263240;
+    border-radius: 8px;
+    padding: 16px 20px;
+    color: #dce6f0;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    font-size: 0.83rem;
+    line-height: 1.75;
+    overflow-x: auto;
+    margin: 18px 0;
+  }
+
+  .terminal .stream {
+    color: #5e7086;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    margin: 12px 0 4px;
+  }
+
+  .terminal .stream:first-child { margin-top: 0; }
+  .terminal .line { white-space: pre; }
+
+  .t-d1 { color: #f0a93b; }
+  .t-d2 { color: #4fce95; }
+  .t-zone { color: #93a4b8; }
+  .t-restricted { color: #f2786c; }
+
+  /* ---------- misc ---------- */
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+
+  .foot {
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+    color: var(--text-faint);
+    font-size: 0.8rem;
+  }
+
+  /* ---------- responsive ---------- */
+
+  @media (max-width: 900px) {
+    .shell {
+      grid-template-columns: 1fr;
+      padding: 0 18px 72px;
+      gap: 0;
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      padding: 14px 0;
+      flex-direction: row;
+      overflow-x: auto;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      z-index: 5;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .rail::-webkit-scrollbar { display: none; }
+    .rail .brand { display: none; }
+
+    .rail a {
+      flex: none;
+      border-left: none;
+      border-bottom: 2px solid var(--border);
+      padding: 6px 10px;
+      white-space: nowrap;
+    }
+
+    .rail a.active {
+      border-left: none;
+      border-bottom-color: var(--accent);
+    }
+
+    main { padding-top: 28px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="shell">
+  <nav class="rail" id="rail">
+    <div class="brand">Fly-in, simply</div>
+    <a href="#overview">00 · The Big Idea</a>
+    <a href="#flow">01 · The Journey</a>
+    <a href="#model">02 · The Building Blocks</a>
+    <a href="#parser">03 · Reading the Map</a>
+    <a href="#pathfinder">04 · The Brain</a>
+    <a href="#simulation">05 · Playing It Out</a>
+    <a href="#entry">06 · Running It</a>
+    <a href="#example">07 · A Real Example</a>
+  </nav>
+
+  <main>
+    <div class="content">
+
+      <!-- ================= 00 OVERVIEW ================= -->
+      <section id="overview" class="hero">
+        <span class="tag">Fly-in, explained like you're new here</span>
+        <h1>What does this project actually do?</h1>
+        <p class="dek">
+          Picture a busy airport. A bunch of delivery drones all need to
+          fly from the same starting gate to the same finish line, but
+          they share hallways and rooms that can only fit so many drones
+          at once. This project is the "air traffic control" brain: code
+          that decides, one step at a time, who goes where — so nobody
+          crashes, nobody gets stuck, and everybody arrives as fast as
+          possible. This page explains, in plain words, how every piece
+          of that code works.
+        </p>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="n">10</div>
+            <div class="l">files, small and focused</div>
+          </div>
+          <div class="stat">
+            <div class="n">0</div>
+            <div class="l">borrowed maze-solving tools</div>
+          </div>
+          <div class="stat">
+            <div class="n">smart</div>
+            <div class="l">search, built from scratch</div>
+          </div>
+          <div class="stat">
+            <div class="n">43</div>
+            <div class="l">steps on the hardest test map (goal was 45)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 01 DATA FLOW ================= -->
+      <section id="flow">
+        <span class="tag">01</span>
+        <h2>How a map file turns into a flight plan</h2>
+        <p class="lede">
+          Here's the big trick: the computer does NOT figure things out
+          turn by turn while you watch. It plans the <strong>whole
+          trip, for everyone, before the first turn even happens</strong> —
+          then it just reads that plan out loud.
+        </p>
+        <p>
+          Think of it like a relay race with a coach who plans every
+          runner's leg on paper first, then just calls out the plan as
+          the race happens. Below are the six steps the code goes
+          through, in order, to turn a text file into a finished
+          schedule. Each step does one job and hands a finished result
+          to the next step — nothing gets redone or guessed twice.
+        </p>
+
+        <figure>
+          <div class="diagram-frame">
+            <svg viewBox="0 0 600 770" role="img" aria-label="Pipeline from map file through MapParser, Graph, Pathfinder and Simulation, ending in two output streams: stdout and stderr.">
+              <defs>
+                <marker id="arrow1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                  <polygon points="0,0 8,4 0,8" fill="currentColor" />
+                </marker>
+              </defs>
+
+              <!-- box 1 -->
+              <rect x="20" y="20" width="300" height="60" rx="7" fill="none" stroke="currentColor" opacity="0.55" />
+              <text x="170" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">the map file</text>
+              <text x="170" y="64" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.6">plain text: rooms and roads</text>
+              <line x1="170" y1="80" x2="170" y2="122" stroke="currentColor" opacity="0.55" marker-end="url(#arrow1)" />
+              <text x="340" y="105" font-size="11.5" fill="currentColor" opacity="0.75">read it, line by line</text>
+
+              <!-- box 2 -->
+              <rect x="20" y="130" width="300" height="60" rx="7" fill="none" stroke="currentColor" opacity="0.55" />
+              <text x="170" y="156" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">check it makes sense</text>
+              <text x="170" y="174" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.6">no typos, nothing missing</text>
+              <line x1="170" y1="190" x2="170" y2="232" stroke="currentColor" opacity="0.55" marker-end="url(#arrow1)" />
+              <text x="340" y="215" font-size="11.5" fill="currentColor" opacity="0.75">every room + road is now a real object</text>
+
+              <!-- box 3 -->
+              <rect x="20" y="240" width="300" height="60" rx="7" fill="none" stroke="currentColor" opacity="0.55" />
+              <text x="170" y="266" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">build the map</text>
+              <text x="170" y="284" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.6">bundle it all into one map object</text>
+              <line x1="170" y1="300" x2="170" y2="342" stroke="currentColor" opacity="0.55" marker-end="url(#arrow1)" />
+              <text x="340" y="325" font-size="11.5" fill="currentColor" opacity="0.75">handed to the planner</text>
+
+              <!-- box 4 : pathfinder, accented -->
+              <rect x="20" y="350" width="300" height="60" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4" />
+              <text x="170" y="376" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">plan every drone's trip</text>
+              <text x="170" y="394" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.7">the clever part — see step 04</text>
+              <line x1="170" y1="410" x2="170" y2="452" stroke="currentColor" opacity="0.55" marker-end="url(#arrow1)" />
+              <text x="340" y="435" font-size="11.5" fill="currentColor" opacity="0.75">each drone now has its own plan</text>
+
+              <!-- box 5 -->
+              <rect x="20" y="460" width="300" height="60" rx="7" fill="none" stroke="currentColor" opacity="0.55" />
+              <text x="170" y="486" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">one plan per drone</text>
+              <text x="170" y="504" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.6">"be at room X on turn 3", etc.</text>
+              <line x1="170" y1="520" x2="170" y2="562" stroke="currentColor" opacity="0.55" marker-end="url(#arrow1)" />
+              <text x="340" y="545" font-size="11.5" fill="currentColor" opacity="0.75">read the plans out loud</text>
+
+              <!-- box 6 -->
+              <rect x="20" y="570" width="300" height="60" rx="7" fill="none" stroke="currentColor" opacity="0.55" />
+              <text x="170" y="596" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">play it out, turn by turn</text>
+              <text x="170" y="614" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.6">until every drone has arrived</text>
+
+              <!-- branch -->
+              <line x1="170" y1="630" x2="90" y2="678" stroke="currentColor" opacity="0.55" marker-end="url(#arrow1)" />
+              <line x1="170" y1="630" x2="250" y2="678" stroke="currentColor" opacity="0.55" marker-end="url(#arrow1)" />
+
+              <rect x="20" y="680" width="140" height="60" rx="7" fill="none" stroke="currentColor" opacity="0.55" />
+              <text x="90" y="706" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">the answer</text>
+              <text x="90" y="723" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.6">plain, just the moves</text>
+
+              <rect x="180" y="680" width="140" height="60" rx="7" fill="none" stroke="var(--accent)" opacity="0.9" />
+              <text x="250" y="706" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">for humans</text>
+              <text x="250" y="723" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.6">colorful play-by-play</text>
+            </svg>
+          </div>
+          <figcaption>
+            Each box hands a finished, ready-made thing to the next box.
+            Nothing is figured out twice — the "plan every drone's trip"
+            step decides everything up front, and the "play it out" step
+            at the bottom just narrates what was already decided.
+          </figcaption>
+        </figure>
+      </section>
+
+      <!-- ================= 02 DOMAIN MODEL ================= -->
+      <section id="model">
+        <span class="tag">02</span>
+        <h2>The four building blocks</h2>
+        <p class="lede">
+          Everything in this project is built from four simple ideas.
+          Once you know these four, the rest of the code is just details.
+        </p>
+        <p>
+          A <strong>zone</strong> is a place — like a room. A
+          <strong>connection</strong> is a road between two zones. A
+          <strong>drone</strong> is, well, a drone. And a
+          <strong>graph</strong> is just the whole map: every zone and
+          every connection, bundled together. Zones also come in four
+          flavors, and the flavor decides how long it takes to enter one:
+        </p>
+
+        <div class="legend">
+          <span class="chip"><span class="sw" style="background:var(--z-normal)"></span>normal · a plain room, 1 turn</span>
+          <span class="chip"><span class="sw" style="background:var(--z-priority)"></span>priority · a nice shortcut, still 1 turn</span>
+          <span class="chip"><span class="sw" style="background:var(--z-restricted)"></span>restricted · slow, takes 2 turns</span>
+          <span class="chip"><span class="sw" style="background:var(--z-blocked)"></span>blocked · a locked door, never enter</span>
+        </div>
+
+        <div class="card-grid">
+          <div class="card">
+            <h3><span class="path">src/zone.py</span> · <code>Zone</code></h3>
+            <p class="role">A room. It keeps its own little guestbook of who's inside, turn by turn.</p>
+            <div class="code-block">
+              <pre><code>def has_room_at(self, turn: int) -> bool:
+    return (
+        self.has_unlimited_capacity
+        or self.occupancy_at(turn) &lt; self.max_drones
+    )
+
+def reserve(self, turn: int, delta: int = 1) -> None:
+    self._reservations[turn] += delta</code></pre>
+            </div>
+            <ul class="notes">
+              <li>In plain words: <strong>"is there room for one more, on this turn?"</strong> and <strong>"add (or remove) one drone from this turn's headcount."</strong></li>
+              <li>The room only counts <strong>how many</strong> drones are inside, never <strong>which</strong> ones — like a parking garage counting cars, not license plates.</li>
+              <li>The start room and the finish room are special: they never fill up. Any number of drones can be there at once.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3><span class="path">src/connection.py</span> · <code>Connection</code></h3>
+            <p class="role">A road between two rooms. It has the exact same kind of guestbook.</p>
+            <div class="code-block">
+              <pre><code>def other(self, zone_name: str) -> str:
+    return self.zone_b if zone_name == self.zone_a else self.zone_a
+
+def has_room_at(self, turn: int) -> bool:
+    return self.occupancy_at(turn) &lt; self.max_link_capacity</code></pre>
+            </div>
+            <ul class="notes">
+              <li>Works exactly like a room, just for a road: "how many drones are crossing me right now?"</li>
+              <li>A road's name is always exactly what the map file called it (like <code>"gate1-gate2"</code>) — so it's printed correctly later.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3><span class="path">src/drone.py</span> · <code>Drone</code></h3>
+            <p class="role">Just a name tag and a plan. The drone doesn't "think" for itself.</p>
+            <div class="code-block">
+              <pre><code>Event = Tuple[int, str, str]  # (turn, "zone"|"conn", name)
+
+def location_before(self, turn: int) -> Optional[Event]:
+    best: Optional[Event] = None
+    for event in self.timeline:
+        if event[0] &gt; turn:
+            break
+        best = event
+    return best</code></pre>
+            </div>
+            <ul class="notes">
+              <li>All the smart decisions happen once, ahead of time. The drone just follows its plan like a script — it never has to "decide" anything mid-flight.</li>
+              <li>You can always ask a drone "where will you be on turn 7?" — that's what this code answers.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3><span class="path">src/graph.py</span> · <code>Graph</code></h3>
+            <p class="role">The whole map, bundled together: every room, every road, plus which one is home base.</p>
+            <div class="code-block">
+              <pre><code>def add_connection(self, connection: Connection) -> None:
+    self.connections.append(connection)
+    self._adjacency[connection.zone_a][connection.zone_b] = connection
+    self._adjacency[connection.zone_b][connection.zone_a] = connection
+    self._by_name[connection.name] = connection</code></pre>
+            </div>
+            <ul class="notes">
+              <li>It's like a phone book for the map: give it two room names, it tells you if there's a road between them.</li>
+              <li>It also remembers which room is the start and which is the finish, so nothing else has to go looking for them.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 03 PARSER ================= -->
+      <section id="parser">
+        <span class="tag">03</span>
+        <h2>How the map file gets read</h2>
+        <p class="lede">
+          The computer reads the map text from top to bottom, just once —
+          like reading a recipe before cooking, not re-reading it every
+          five seconds.
+        </p>
+        <p>
+          First line: how many drones there are. Then: every room. Then:
+          every road. Nothing is stored in some in-between, temporary
+          format — the moment a line checks out, it becomes a real
+          <code>Zone</code> or <code>Connection</code>, ready to use. And
+          if anything doesn't make sense — a typo, a room mentioned twice,
+          a road to a room that doesn't exist — the program stops right
+          there and says exactly which line is wrong.
+        </p>
+
+        <div class="code-block">
+          <div class="code-label"><span class="dot"></span>src/parser.py</div>
+          <pre><code>pair = frozenset((zoneA, zoneB))
+if pair in self._connected_pairs:
+    raise ValueError(
+        f"Duplicate connection '{zoneA}-{zoneB}'. "
+        "This path already exists."
+    )
+self._connected_pairs.add(pair)
+
+declared_name = match.group(1)
+self.connections[declared_name] = Connection(
+    zone_a=zoneA, zone_b=zoneB,
+    max_link_capacity=capacity, name=declared_name,
+)</code></pre>
+        </div>
+
+        <ul class="notes">
+          <li><strong>Same road, written backwards, still counts as a duplicate:</strong> if the map lists <code>gate1-gate2</code> and later <code>gate2-gate1</code>, this code catches it — those are the same road.</li>
+          <li><strong>Names are kept exactly as written:</strong> if the map calls a road <code>corridorA-tunnelB</code>, that is exactly what gets printed later — never a different spelling.</li>
+          <li><strong>Stop immediately on any mistake,</strong> and say exactly which line caused it — no silent guessing.</li>
+        </ul>
+
+        <p>
+          Once every line has been checked, putting it all together into
+          "the map" is the easy part — just a few lines that hand
+          everything already built over to the <code>Graph</code>:
+        </p>
+        <div class="code-block">
+          <pre><code>def build_graph(self) -> Graph:
+    graph = Graph()
+    graph.nb_drones = self.nb_drones
+    for zone in self.zones.values():
+        graph.add_zone(zone)
+    for connection in self.connections.values():
+        graph.add_connection(connection)
+    return graph</code></pre>
+        </div>
+      </section>
+
+      <!-- ================= 04 PATHFINDER ================= -->
+      <section id="pathfinder">
+        <span class="tag">04</span>
+        <h2>The brain: how a route gets planned</h2>
+        <p class="lede">
+          This is the cleverest part of the whole project — a mini GPS,
+          built completely from scratch, for many drones at once.
+        </p>
+        <p>
+          A normal GPS asks: <em>"what room is the drone in?"</em> This
+          one asks a smarter question: <em>"what room is the drone in,
+          AND what turn is it?"</em> That one small change is basically
+          the whole secret. Because now, the computer simply never lets
+          two drones be told to be in the exact same room on the exact
+          same turn. No crashes, ever — not because anyone checks for
+          them, but because the plan can't even be written that way in
+          the first place.
+        </p>
+
+        <figure>
+          <div class="diagram-frame">
+            <svg viewBox="0 0 600 270" role="img" aria-label="A time-expanded search lattice: zones as rows, turns as columns. A highlighted path moves diagonally between zones and waits horizontally within a zone.">
+              <defs>
+                <marker id="arrow3" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                  <polygon points="0,0 8,4 0,8" fill="var(--accent)" />
+                </marker>
+              </defs>
+
+              <!-- row labels -->
+              <text x="42" y="54" text-anchor="end" font-size="12" fill="currentColor" opacity="0.75">start</text>
+              <text x="42" y="144" text-anchor="end" font-size="12" fill="currentColor" opacity="0.75">mid</text>
+              <text x="42" y="234" text-anchor="end" font-size="12" fill="currentColor" opacity="0.75">end</text>
+
+              <!-- column labels -->
+              <text x="60" y="256" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t0</text>
+              <text x="180" y="256" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t1</text>
+              <text x="300" y="256" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t2</text>
+              <text x="420" y="256" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t3</text>
+              <text x="540" y="256" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t4</text>
+
+              <!-- faint wait edges (within a row) -->
+              <g stroke="currentColor" opacity="0.18">
+                <line x1="60" y1="50" x2="540" y2="50" />
+                <line x1="60" y1="140" x2="540" y2="140" />
+                <line x1="60" y1="230" x2="540" y2="230" />
+              </g>
+
+              <!-- faint move edges (between adjacent rows) -->
+              <g stroke="currentColor" opacity="0.14">
+                <line x1="60" y1="50" x2="180" y2="140" />
+                <line x1="180" y1="50" x2="300" y2="140" />
+                <line x1="300" y1="50" x2="420" y2="140" />
+                <line x1="420" y1="50" x2="540" y2="140" />
+                <line x1="60" y1="140" x2="180" y2="230" />
+                <line x1="180" y1="140" x2="300" y2="230" />
+                <line x1="300" y1="140" x2="420" y2="230" />
+                <line x1="420" y1="140" x2="540" y2="230" />
+              </g>
+
+              <!-- grid dots -->
+              <g fill="currentColor" opacity="0.35">
+                <circle cx="60" cy="50" r="3.5" /><circle cx="180" cy="50" r="3.5" /><circle cx="300" cy="50" r="3.5" /><circle cx="420" cy="50" r="3.5" /><circle cx="540" cy="50" r="3.5" />
+                <circle cx="60" cy="140" r="3.5" /><circle cx="180" cy="140" r="3.5" /><circle cx="300" cy="140" r="3.5" /><circle cx="420" cy="140" r="3.5" /><circle cx="540" cy="140" r="3.5" />
+                <circle cx="60" cy="230" r="3.5" /><circle cx="180" cy="230" r="3.5" /><circle cx="300" cy="230" r="3.5" /><circle cx="420" cy="230" r="3.5" /><circle cx="540" cy="230" r="3.5" />
+              </g>
+
+              <!-- chosen path: start@t0 -> mid@t1 (move) -> mid@t2 (wait) -> end@t3 (move) -->
+              <polyline points="60,50 180,140 300,140 420,230" fill="none" stroke="var(--accent)" stroke-width="2.6" marker-end="url(#arrow3)" />
+              <g fill="var(--accent)">
+                <circle cx="60" cy="50" r="6" /><circle cx="180" cy="140" r="6" /><circle cx="300" cy="140" r="6" /><circle cx="420" cy="230" r="6" />
+              </g>
+              <text x="240" y="128" text-anchor="middle" font-size="10.5" fill="var(--accent)">wait</text>
+            </svg>
+          </div>
+          <figcaption>
+            Every dot is <span class="fig-accent">"a room, at a certain turn."</span>
+            A flat arrow means "wait here one more turn." A slanted arrow
+            means "move to the next room." The orange line shows one
+            drone's actual plan: move into the middle room, wait a turn
+            (maybe the next room was full), then move again to the finish.
+          </figcaption>
+        </figure>
+
+        <h3 style="margin-top:36px;">Every drone only ever has 3 choices</h3>
+        <p>
+          At every single turn, a drone can do exactly one of three
+          things: <strong>wait</strong> where it is, <strong>move</strong>
+          into a normal (or nice-shortcut) room, or <strong>start
+          crossing</strong> into a slow room. One small piece of code
+          checks all three, and only allows a move if there's actually
+          room for it:
+        </p>
+
+        <div class="code-block">
+          <div class="code-label"><span class="dot"></span>src/pathfinder.py — the "what can I do next?" check</div>
+          <pre><code>zone = self.graph.zones[zone_name]
+if zone.has_room_at(turn + 1):
+    consider(zone_name, turn, zone_name, turn + 1,
+             priority_score, [(turn + 1, "zone", zone_name)])
+
+for neighbor in self.graph.neighbors(zone_name):
+    if neighbor.zone_type == ZoneType.BLOCKED:
+        continue
+    connection = self.graph.connection_between(zone_name, neighbor.name)
+    bonus = -1 if neighbor.zone_type == ZoneType.PRIORITY else 0
+
+    if neighbor.zone_type == ZoneType.RESTRICTED:
+        arrival = turn + 2
+        if (connection.has_room_at(turn + 1)
+                and connection.has_room_at(turn + 2)
+                and neighbor.has_room_at(arrival)):
+            consider(zone_name, turn, neighbor.name, arrival,
+                     priority_score + bonus,
+                     [(turn + 1, "conn", connection.name),
+                      (turn + 2, "conn", connection.name),
+                      (arrival, "zone", neighbor.name)])
+    else:
+        arrival = turn + 1
+        if connection.has_room_at(arrival) and neighbor.has_room_at(arrival):
+            consider(zone_name, turn, neighbor.name, arrival,
+                     priority_score + bonus,
+                     [(arrival, "conn", connection.name),
+                      (arrival, "zone", neighbor.name)])</code></pre>
+        </div>
+
+        <p>
+          Don't worry about reading every line — the important part is
+          the three checks: <em>"is there room to just wait here?"</em>,
+          <em>"is the next room free?"</em>, and if it's a slow room,
+          <em>"is there room for BOTH turns of the crossing?"</em>. This
+          is the <strong>only</strong> place in the whole project that
+          creates a slow-room crossing, and it always reserves both turns
+          at once. That's exactly why a drone can never get stuck
+          half-way through a crossing — that situation was never allowed
+          to exist in the first place.
+        </p>
+
+        <figure>
+          <div class="diagram-frame">
+            <svg viewBox="0 0 600 190" role="img" aria-label="Timeline showing a restricted zone transit: the connection is reserved for two consecutive turns, and the zone reservation begins exactly when the connection reservation ends.">
+              <!-- gridlines -->
+              <g stroke="currentColor" opacity="0.22">
+                <line x1="90" y1="35" x2="90" y2="150" />
+                <line x1="230" y1="35" x2="230" y2="150" />
+                <line x1="370" y1="35" x2="370" y2="150" />
+                <line x1="510" y1="35" x2="510" y2="150" />
+              </g>
+              <!-- axis labels -->
+              <text x="90" y="168" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t</text>
+              <text x="230" y="168" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t+1</text>
+              <text x="370" y="168" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t+2</text>
+              <text x="510" y="168" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">t+3</text>
+
+              <!-- row labels -->
+              <text x="76" y="58" text-anchor="end" font-size="11" fill="currentColor" opacity="0.75">conn.</text>
+              <text x="76" y="118" text-anchor="end" font-size="11" fill="currentColor" opacity="0.75">zone</text>
+
+              <!-- connection occupancy bar: t+1 .. t+2 -->
+              <rect x="230" y="42" width="140" height="26" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" />
+              <!-- zone occupancy bar: from t+2 onward -->
+              <rect x="370" y="102" width="170" height="26" rx="4" fill="var(--accent-soft)" stroke="var(--z-restricted)" />
+
+              <circle cx="230" cy="55" r="4" fill="var(--accent)" />
+              <circle cx="370" cy="55" r="4" fill="var(--accent)" />
+              <circle cx="370" cy="115" r="4" fill="var(--z-restricted)" />
+
+              <text x="230" y="26" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.8">commit</text>
+              <text x="370" y="26" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.8">must land</text>
+            </svg>
+          </div>
+          <figcaption>
+            Crossing a slow room always takes exactly <span class="fig-accent">2 turns</span>,
+            and once a drone starts, it can't change its mind or stop
+            halfway. It "books" the road for both turns right away, and
+            must land in the room the moment the second turn ends.
+          </figcaption>
+        </figure>
+
+        <h3 style="margin-top:36px;">Making the plan faster</h3>
+        <p>
+          The first plan the computer makes — routing drones one at a
+          time — usually works, but it's rarely the <em>fastest</em>
+          possible plan. So afterward, the computer plays a little game
+          with itself, up to 500 times: pick one or two drones at random,
+          erase their plan, and look for a quicker one. If the new plan
+          gets everyone done sooner (or at least not slower), keep it.
+          If not, throw it away and try something else.
+        </p>
+
+        <div class="code-block">
+          <div class="code-label"><span class="dot"></span>src/pathfinder.py — the "keep it or undo it?" check</div>
+          <pre><code>if candidate_makespan &lt;= best_makespan:
+    for index, new_path in replanned.items():
+        paths[index] = new_path
+    if candidate_makespan &lt; best_makespan:
+        best_makespan = candidate_makespan
+        best_paths = [path[:] for path in paths]
+        no_improvement = 0
+    else:
+        no_improvement += 1
+else:
+    # revert: put the old reservations back
+    ...
+    no_improvement += 1</code></pre>
+        </div>
+        <ul class="notes">
+          <li>It's even allowed to try a "sideways" swap — same speed, different plan — because sometimes that opens the door to a better idea a few tries later.</li>
+          <li>If 100 tries in a row don't help, it stops trying — no point running forever.</li>
+          <li>"Undoing" a bad idea is easy, because every room and road already keeps its own guestbook — undoing just means erasing those entries again.</li>
+        </ul>
+      </section>
+
+      <!-- ================= 05 SIMULATION ================= -->
+      <section id="simulation">
+        <span class="tag">05</span>
+        <h2>Playing the plan out, turn by turn</h2>
+        <p class="lede">
+          Once the plan exists, "running the simulation" is really just
+          reading it out loud, one turn at a time.
+        </p>
+        <p>
+          There's one tricky little bit, though: telling apart <em>"a
+          drone really moved"</em> from <em>"a drone just waited in
+          place."</em> The rules say a waiting drone should not be listed
+          for that turn. So the code checks a simple question: is the
+          drone in the <strong>same</strong> room it was already in? If
+          yes, it just waited — skip it. If no, it's a real move — print
+          it.
+        </p>
+
+        <div class="code-block">
+          <div class="code-label"><span class="dot"></span>src/simulation.py — "did it really move, or just wait?"</div>
+          <pre><code>if zone_event is not None:
+    if zone_event == self._zone_before(drone, turn):
+        return None  # same zone as before &rarr; it waited, omit it
+    return zone_event
+return conn_event  # only a "conn" event &rarr; mid-transit, show the link</code></pre>
+        </div>
+
+        <div class="card-grid">
+          <div class="card">
+            <h3>the official answer</h3>
+            <p class="role">One plain line per turn. No colors, no extra words — just the moves.</p>
+            <ul class="notes">
+              <li>Always looks like <code>D1-roomName</code> or <code>D2-roadName</code>, one line per turn, exactly as the assignment asks for.</li>
+              <li>Once a drone reaches the finish room, it just stops showing up — no special "mark as done" code needed, it falls out naturally.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>the human-friendly version</h3>
+            <p class="role">A colorful printout, just for people watching in a terminal — kept completely separate from the official answer.</p>
+            <ul class="notes">
+              <li>Shows the same moves in color, plus a quick snapshot of which drones are in which room right now.</li>
+              <li>Colors come from the map file itself if it set one, or a sensible default color for that type of room otherwise.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-label"><span class="dot"></span>src/colors.py</div>
+          <pre><code>def zone_color(zone: Zone) -> str:
+    if zone.color:
+        return NAMED_COLORS.get(zone.color.lower(), TYPE_COLORS[zone.zone_type])
+    return TYPE_COLORS[zone.zone_type]</code></pre>
+        </div>
+        <p>Eighteen everyday color words (like "red", "sky", "gold") get turned into terminal colors. If a room has no color at all, it just uses a default based on its type — slow rooms are reddish, nice shortcuts are greenish, and so on.</p>
+      </section>
+
+      <!-- ================= 06 ENTRY POINT ================= -->
+      <section id="entry">
+        <span class="tag">06</span>
+        <h2>Actually running the program</h2>
+        <p class="lede">Starting the whole thing only takes four real lines of code; the rest is just reading arguments and handling mistakes nicely.</p>
+
+        <div class="code-block">
+          <div class="code-label"><span class="dot"></span>src/main.py</div>
+          <pre><code>map_parser = MapParser(args.map_file)
+map_parser.parse()
+graph = map_parser.build_graph()
+Simulation(graph, console=console).run()</code></pre>
+        </div>
+        <p>
+          In plain words: read the map file, check it, build the map
+          object, then plan and play out every drone's trip. If the map
+          file itself is broken, that's caught while reading it. If a
+          drone simply has no possible way to reach the finish, that gets
+          caught here and reported clearly instead of crashing.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>command</th><th>what it does</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>make install</code></td><td>downloads the few tools this project needs</td></tr>
+              <tr><td><code>make run ARGS=maps/easy/01_linear_path.txt</code></td><td>actually runs the program on a map file</td></tr>
+              <tr><td><code>make debug ARGS=...</code></td><td>same, but lets you pause and look around if something's odd</td></tr>
+              <tr><td><code>make lint</code></td><td>checks the code for style and type mistakes</td></tr>
+              <tr><td><code>make lint-strict</code></td><td>the same check, but pickier</td></tr>
+              <tr><td><code>make clean</code></td><td>deletes leftover junk files</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= 07 EXAMPLE RUN ================= -->
+      <section id="example">
+        <span class="tag">07</span>
+        <h2>Let's watch it actually happen</h2>
+        <p class="lede">The simplest possible map: 2 drones, a straight line of rooms to the finish.</p>
+
+        <div class="terminal">
+          <div class="stream">stdout</div>
+          <div class="line">D1-waypoint1</div>
+          <div class="line">D1-waypoint2 D2-waypoint1</div>
+          <div class="line"><span class="t-d1">D1-goal</span> D2-waypoint2</div>
+          <div class="line">D2-goal</div>
+          <div class="stream">stderr (colors condensed for text)</div>
+          <div class="line">Loaded 2 drones from maps/easy/01_linear_path.txt.</div>
+          <div class="line">Computing conflict-free flight paths...</div>
+          <div class="line">Turn&nbsp;&nbsp;1  <span class="t-d1">D1</span>-<span class="t-zone">waypoint1</span>  | zones: waypoint1(D1) start(D2)</div>
+          <div class="line">Turn&nbsp;&nbsp;2  <span class="t-d1">D1</span>-waypoint2 <span class="t-d2">D2</span>-waypoint1  | zones: waypoint2(D1) waypoint1(D2)</div>
+          <div class="line">Turn&nbsp;&nbsp;3  <span class="t-d1">D1</span>-goal <span class="t-d2">D2</span>-waypoint2  | zones: waypoint2(D2)</div>
+          <div class="line">Turn&nbsp;&nbsp;4  <span class="t-d2">D2</span>-goal  | zones: -</div>
+          <div class="line">All 2 drones delivered in 4 turns.</div>
+        </div>
+
+        <p>
+          Notice D1 reaches <code>goal</code> on turn 3, and after that,
+          it just... disappears from the list. That's it — that's the
+          whole "delivered drones are no longer tracked" rule, and there
+          was no special extra code needed to make it happen. It's simply
+          what naturally occurs once a drone's plan runs out.
+        </p>
+
+        <h3 style="margin-top:32px;">How fast is this, really?</h3>
+        <p>
+          The assignment sets a "target" number of turns to beat for
+          every test map — lower is better. Here's how this program
+          actually did. Green means the target was beaten:
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>map</th><th class="num">drones</th><th class="num">target</th><th class="num">achieved</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>easy / linear_path</td><td class="num">2</td><td class="num">&le; 6</td><td class="num ok">4</td></tr>
+              <tr><td>easy / simple_fork</td><td class="num">4</td><td class="num">&le; 8</td><td class="num ok">4</td></tr>
+              <tr><td>easy / basic_capacity</td><td class="num">4</td><td class="num">&le; 6</td><td class="num ok">4</td></tr>
+              <tr><td>medium / dead_end_trap</td><td class="num">5</td><td class="num">&le; 12</td><td class="num ok">8</td></tr>
+              <tr><td>medium / circular_loop</td><td class="num">6</td><td class="num">&le; 15</td><td class="num ok">15</td></tr>
+              <tr><td>medium / priority_puzzle</td><td class="num">5</td><td class="num">&le; 12</td><td class="num ok">7</td></tr>
+              <tr><td>hard / maze_nightmare</td><td class="num">8</td><td class="num">&le; 30</td><td class="num ok">13</td></tr>
+              <tr><td>hard / capacity_hell</td><td class="num">12</td><td class="num">&le; 35</td><td class="num ok">16</td></tr>
+              <tr><td>hard / ultimate_challenge</td><td class="num">15</td><td class="num">&le; 45</td><td class="num ok">26</td></tr>
+              <tr><td>challenger / impossible_dream <span style="opacity:.6">(optional)</span></td><td class="num">25</td><td class="num">record 45</td><td class="num ok">43</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="foot">
+        Fly-in · that's the whole project, in plain words.
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll(".rail a"));
+    var sections = links
+      .map(function (a) {
+        return document.getElementById(a.getAttribute("href").slice(1));
+      })
+      .filter(Boolean);
+
+    if (!("IntersectionObserver" in window) || !sections.length) return;
+
+    var current = null;
+
+    function setActive(id) {
+      if (id === current) return;
+      current = id;
+      links.forEach(function (a) {
+        a.classList.toggle("active", a.getAttribute("href") === "#" + id);
+      });
+    }
+
+    var observer = new IntersectionObserver(
+      function (entries) {
+        var visible = entries
+          .filter(function (e) { return e.isIntersecting; })
+          .sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; });
+        if (visible.length) setActive(visible[0].target.id);
+      },
+      { rootMargin: "-10% 0px -70% 0px", threshold: 0 }
+    );
+
+    sections.forEach(function (s) { observer.observe(s); });
+    setActive(sections[0].id);
+  })();
+</script>

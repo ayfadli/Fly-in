@@ -1,8 +1,11 @@
-from typing import Dict
-from src.models import Zone, Connection
+from typing import Dict, FrozenSet, Set
 import re
 import sys
 from rich.console import Console
+
+from src.connection import Connection
+from src.graph import Graph
+from src.zone import Zone, ZoneType
 
 
 class MapParser:
@@ -23,8 +26,7 @@ class MapParser:
         self.has_parsed_drones: bool = False
         self.has_parsed_zones: bool = False
 
-        self.graph: Dict[str, Dict[str, int]] = {}
-        self.orig_conns: Dict[str, Dict[str, str]] = {}
+        self._connected_pairs: Set[FrozenSet[str]] = set()
 
     def parse(self) -> None:
         """The main method that opens the file and routes each line."""
@@ -102,6 +104,16 @@ class MapParser:
             console.print("[bold red]error: Missing a start or end zone ![/]")
             sys.exit(1)
 
+    def build_graph(self) -> Graph:
+        """Assemble the parsed zones and connections into an OOP Graph."""
+        graph = Graph()
+        graph.nb_drones = self.nb_drones
+        for zone in self.zones.values():
+            graph.add_zone(zone)
+        for connection in self.connections.values():
+            graph.add_connection(connection)
+        return graph
+
     def _parse_drones(self, line: str, line_number: int) -> None:
         """Extracts the number of drones."""
         nb_drones = (
@@ -127,9 +139,6 @@ class MapParser:
         """Extracts the zone and its optional metadata."""
         is_start = False
         is_end = False
-        zone_type = "normal"
-        color = None
-        max_drones = 1
 
         prefix = next(
             (
@@ -186,12 +195,15 @@ class MapParser:
             self.has_end = True
 
         color = metadata.get("color", None)
-        zone_type = metadata.get("zone", "normal")
-        if zone_type not in ("normal", "blocked", "restricted", "priority"):
+        zone_type_str = metadata.get("zone", "normal")
+        if zone_type_str not in (
+            "normal", "blocked", "restricted", "priority"
+        ):
             raise ValueError(
-                f"Invalid zone type '{zone_type}'. "
+                f"Invalid zone type '{zone_type_str}'. "
                 "Expected one of: normal, blocked, restricted, priority."
             )
+        zone_type = ZoneType(zone_type_str)
 
         if not is_start and not is_end:
             try:
@@ -218,14 +230,19 @@ class MapParser:
             raise ValueError(f"A hub name is required in line {line_number}.")
 
         self.zones[hub_name] = Zone(
-            hub_name, x, y, is_start, is_end, zone_type, color, max_drones
+            name=hub_name,
+            x=x,
+            y=y,
+            zone_type=zone_type,
+            color=color,
+            max_drones=max_drones,
+            is_start=is_start,
+            is_end=is_end,
         )
         if is_start:
             self.start_hub_name = hub_name
         if is_end:
             self.end_hub_name = hub_name
-
-        self.graph[hub_name] = {}
 
     def _parse_connection(self, line: str, line_number: int) -> None:
         """Extracts a connection and its optional metadata."""
@@ -288,8 +305,6 @@ class MapParser:
                     f"Expected a value for metadata option {metadata_match}."
                 )
 
-        capacity = 1
-
         try:
             capacity = int(metadata.get("max_link_capacity", 1))
         except ValueError:
@@ -303,21 +318,18 @@ class MapParser:
                 "The max_link_capacity must be a positive int > 0."
             )
 
-        if zoneB in self.graph[zoneA]:
+        pair = frozenset((zoneA, zoneB))
+        if pair in self._connected_pairs:
             raise ValueError(
                 f"Duplicate connection '{zoneA}-{zoneB}'. "
                 "This path already exists."
             )
-        else:
-            self.graph[zoneA][zoneB] = capacity
-            self.graph[zoneB][zoneA] = capacity
+        self._connected_pairs.add(pair)
 
-            if zoneA not in self.orig_conns:
-                self.orig_conns[zoneA] = {}
-            if zoneB not in self.orig_conns:
-                self.orig_conns[zoneB] = {}
-
-            # wait, match.group(1) might be exactly A-B or B-A, whichever was written
-            # Let's just use match.group(1)
-            self.orig_conns[zoneA][zoneB] = match.group(1)
-            self.orig_conns[zoneB][zoneA] = match.group(1)
+        declared_name = match.group(1)
+        self.connections[declared_name] = Connection(
+            zone_a=zoneA,
+            zone_b=zoneB,
+            max_link_capacity=capacity,
+            name=declared_name,
+        )

@@ -1,5 +1,5 @@
 # Easy Level 1: Simple linear path
-nb_drones: 02
+nb_drones: 50
 
 start_hub: start 0 1
 hub: waypoint1 1 0 []
@@ -9,4 +9,3 @@ end_hub: goal 3 0 [color=red]
 connection: start-waypoint1
 connection: waypoint1-waypoint2
 connection: waypoint2-goal
-    
