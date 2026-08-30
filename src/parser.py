@@ -22,13 +22,14 @@ class MapParser:
 
         self.has_start: bool = False
         self.has_end: bool = False
+        # self.has_nb_drones: bool = False
 
         self.has_parsed_drones: bool = False
         self.has_parsed_zones: bool = False
 
         self._connected_pairs: Set[FrozenSet[str]] = set()
 
-    def parse(self) -> None:
+    def parse(self) -> None:#nb_drones: 4
         """The main method that opens the file and routes each line."""
         console = Console(stderr=True)
 
@@ -38,6 +39,17 @@ class MapParser:
                     line = line.split("#")[0].strip()
                     if not line:
                         continue
+
+                    if not self.has_parsed_drones:
+                        if not line.startswith("nb_drones:"):
+                            raise ValueError(
+                                "The first valid line must define nb_drones."
+                            )
+                        self._parse_drones(line, n)
+                        self.has_parsed_drones = True
+                        continue
+
+
 
                     if self.has_start and line.startswith("start_hub:"):
                         raise ValueError(
@@ -49,24 +61,20 @@ class MapParser:
                             "The end_hub cannot be declared twice."
                         )
 
-                    if not self.has_parsed_drones:
-                        if not line.startswith("nb_drones:"):
-                            raise ValueError(
-                                "The first valid line must define nb_drones."
-                            )
-                        self._parse_drones(line, n)
-                        self.has_parsed_drones = True
-                        continue
 
                     if line.startswith(("start_hub", "hub", "end_hub")):
                         self._parse_zone(line, n)
                         self.has_parsed_zones = True
                         continue
 
+                    if self.has_parsed_drones and not self.has_parsed_zones:
+                        raise ValueError("Invalid zones declaration or duplicate nb_drones definition.")
+
                     if not self.has_parsed_zones:
                         raise ValueError(
                             "Connections declared before any zones."
                         )
+
                     elif line.startswith("connection:"):
                         self._parse_connection(line, n)
                     else:
@@ -134,6 +142,7 @@ class MapParser:
                 f"Invalid value for 'nb_drones': '{nb_drones}'. "
                 "Expected a positive integer."
             )
+        #self.has_nb_drones = True
 
     def _parse_zone(self, line: str, line_number: int) -> None:
         """Extracts the zone and its optional metadata."""
@@ -162,25 +171,32 @@ class MapParser:
         x_str, y_str = coor.groups()
         x, y = int(x_str), int(y_str)
 
-        metadata = dict()
-        metadata_match = re.findall(r"\[(.*?)\]", line.strip())
+        metadata = {}
 
-        if len(metadata_match) > 1:
-            raise ValueError("Invalid Metadata.")
+        metadata_match = re.search(r"\[([^\]]+)\]\s*$", line.strip())
 
-        elif metadata_match != [""] and len(metadata_match) > 0:
+        if metadata_match:
+            metadata_content = metadata_match.group(1)
+
             metadata = dict(
-                re.findall(r"(\w+)\s*=\s*([^\s\]]+)", metadata_match[0])
+                re.findall(
+                    r"(\w+)\s*=\s*([^\s\]]+)",
+                    metadata_content
+                )
             )
 
             for key, value in metadata.items():
                 if "=" in value:
                     raise ValueError(
-                        f"Invalid metadata option: {metadata_match}. "
+                        f"Invalid metadata option: {metadata_content}. "
                         "Expected a single '=' separator."
                     )
+
                 if key not in ("zone", "color", "max_drones"):
-                    raise ValueError(f"Invalid metadata option: {key}")
+                    raise ValueError(
+                        f"Invalid metadata option: {key}"
+                    )
+
 
             if not metadata:
                 raise ValueError(
@@ -239,10 +255,19 @@ class MapParser:
             is_start=is_start,
             is_end=is_end,
         )
+
+
         if is_start:
             self.start_hub_name = hub_name
         if is_end:
             self.end_hub_name = hub_name
+            start_zone = self.zones[self.start_hub_name]
+            end_zone = self.zones[hub_name]
+            if start_zone.x == end_zone.x and start_zone.y == end_zone.y:
+                raise ValueError(
+                    "The graph must have a unique start and a unique end zone."
+                )
+
 
     def _parse_connection(self, line: str, line_number: int) -> None:
         """Extracts a connection and its optional metadata."""
@@ -278,18 +303,22 @@ class MapParser:
                 "A zone cannot connect to itself."
             )
 
-        metadata = dict()
-        metadata_match = re.findall(r"\[(.*?)\]", line.strip())
+        metadata = {}
 
-        if len(metadata_match) > 1:
-            raise ValueError(
-                f"Invalid Metadata for connection '{zoneA}-{zoneB}'."
-            )
+        metadata_match = re.search(r"\[([^\]]+)\]\s*$", line.strip())
 
-        elif metadata_match != [""] and len(metadata_match) > 0:
+        if metadata_match:
             metadata = dict(
-                re.findall(r"(\w+)\s*=\s*([^\s\]]+)", metadata_match[0])
+                re.findall(
+                    r"(\w+)\s*=\s*([^\s\]]+)",
+                    metadata_match.group(1)
+                )
             )
+
+            if not metadata:
+                raise ValueError(
+                    f"Invalid Metadata for connection '{zoneA}-{zoneB}'."
+                )
 
             for key, value in metadata.items():
                 if "=" in value:
