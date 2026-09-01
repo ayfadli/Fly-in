@@ -1,30 +1,44 @@
-"""Pick a few good routes with Dijkstra + Yen, then split the drones over them."""
+"""Find candidate routes with Dijkstra + Yen, then give each drone the best one."""
 
 import heapq
 from itertools import count
 
 from src.graph import Graph, ZoneType
+from src.simulation import Simulation
 
 Route = list[str]
 
+_YEN_ROUTES = 15       # how many shortest routes to keep as candidates
+_TRIAL_WINDOW = 20     # recent drones to replay when placing the next one
+
 
 class Pathfinder:
-    """Dijkstra finds one route, Yen finds several, a greedy pass assigns drones."""
+    """Dijkstra finds one route, Yen finds several; each drone then takes the
+    route on which a short trial run says it arrives soonest."""
 
     def __init__(self, graph: Graph) -> None:
         self.graph = graph
 
     def plan(self) -> list[Route]:
         """Return the route each drone should fly (list index = drone id - 1)."""
-        routes = self._spread_out(self._yen(min(max(self.graph.nb_drones, 3), 15)))
-        length = [self._turns(route) for route in routes]
-        queued = [0] * len(routes)
-        assignment: list[Route] = []
+        routes = self._pick_routes(self._yen(_YEN_ROUTES))
+        plan: list[Route] = []
         for _ in range(self.graph.nb_drones):
-            best = min(range(len(routes)), key=lambda i: length[i] + queued[i])
-            queued[best] += 1
-            assignment.append(routes[best])
-        return assignment
+            plan.append(self._best_next_route(plan, routes))
+        return plan
+
+    def _best_next_route(self, plan: list[Route], routes: list[Route]) -> Route:
+        """Add one more drone on each candidate route; keep the earliest arrival."""
+        best_route, best_arrival = routes[0], None
+        for route in routes:
+            trial = (plan + [route])[-_TRIAL_WINDOW:]
+            try:
+                arrival = Simulation(self.graph, trial).arrival_of_last()
+            except RuntimeError:            # this route jams the fleet: skip it
+                continue
+            if best_arrival is None or arrival < best_arrival:
+                best_route, best_arrival = route, arrival
+        return best_route
 
     def _turns(self, route: Route) -> int:
         """Turns one lone drone needs to fly this whole route."""
@@ -84,15 +98,15 @@ class Pathfinder:
             found.append(heapq.heappop(candidates)[2])
         return found
 
-    def _spread_out(self, routes: list[Route]) -> list[Route]:
-        """Keep routes that never ask a shared zone for more room than it has."""
+    def _pick_routes(self, routes: list[Route]) -> list[Route]:
+        """Drop a route that would fly an edge against the traffic already going
+        the other way on a kept route -- head-on flow is what can deadlock."""
         kept: list[Route] = []
-        taken: dict[str, int] = {}
+        used: set[tuple[str, str]] = set()
         for route in routes:
-            middle = route[1:-1]
-            if all(self.graph.zones[name].capacity > taken.get(name, 0)
-                   for name in middle):
-                for name in middle:
-                    taken[name] = taken.get(name, 0) + 1
-                kept.append(route)
+            edges = list(zip(route, route[1:]))
+            if any((b, a) in used for a, b in edges):
+                continue
+            used.update(edges)
+            kept.append(route)
         return kept or routes[:1]

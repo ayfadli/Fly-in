@@ -12,7 +12,8 @@ The program reads a **map file** describing a graph of *zones* joined by
 bidirectional *connections*, then:
 
 1. **parses** the file into a `Graph`;
-2. **plans** one route per drone with **Dijkstra + Yen's k-shortest paths**;
+2. **plans** the routes with **Dijkstra + Yen's k-shortest paths**, then gives
+   each drone the route it reaches the end soonest on;
 3. **simulates** the fleet turn by turn, letting a drone wait whenever the next
    zone or connection is full;
 4. **prints** the mandatory `D<id>-<destination>` lines (one line per turn) on
@@ -75,20 +76,28 @@ candidates; for every prefix (`root`) of the last accepted route it removes the
 links already taken from that prefix, reruns Dijkstra for the rest (`spur`), and
 splices `root + spur`. We ask for `k = min(max(nb_drones, 3), 15)` routes.
 
-### 3. Spread the fleet out (`Pathfinder._spread_out`, `Pathfinder.plan`)
+### 3. Keep the compatible routes (`Pathfinder._pick_routes`)
 
-* **Keep** a Yen route only while every zone it shares with an already-kept
-  route still has spare capacity — a zone that holds *N* drones carries at most
-  *N* of our routes. (A map with a single forced corridor keeps exactly one
-  route; that is correct.)
-* **Assign** each drone to the route with the smallest `length + queued`, i.e.
-  "the route where I would arrive soonest counting the drones already queued
-  ahead of me". Short routes fill up first, then longer ones take over once they
-  would actually be faster.
+From Yen's list, drop a route only if it would fly some connection **against**
+the traffic a kept route already sends the other way. Head-on flow on a full
+corridor is the one thing that can deadlock the wait-based simulation; routes
+that merge or run parallel are always safe because the sim serialises them.
 
-### 4. Simulation (`Simulation._step`)
+### 4. Give each drone the route it arrives on soonest (`Pathfinder.plan`)
 
-Each turn:
+Drones are placed one at a time. For each drone we add it to every candidate
+route in turn, **replay the last few drones of the fleet** (`_TRIAL_WINDOW`),
+and keep the route on which this drone reaches the end earliest. This is a
+greedy insertion heuristic: it naturally fills short routes first, then spreads
+onto slower parallel routes exactly when doing so would help — including
+splitting the fleet across several restricted corridors, which is what lets the
+challenger map beat its reference record.
+
+### 5. Simulation (`Simulation._step`)
+
+Capacity is **not** handled by the planner; it lives here, as a plain "is there
+room to step forward? if not, wait" check — much easier to follow than a single
+all-knowing search. Each turn:
 
 1. every drone **mid-crossing** of a restricted connection **lands** (it must —
    it cannot linger on a connection);
@@ -107,9 +116,12 @@ the program stops with a `deadlock` error instead of looping forever.
 
 * Dijkstra: `O(E log V)`. Yen runs it `O(k · V)` times — a few thousand cheap
   Dijkstra runs on the largest provided map, well under a second.
-* Routes are computed **once**, never recomputed during the simulation.
-* Simulation: `O(turns · drones²)` worst case (one long single-file queue);
-  fine for the provided maps (≤ 25 drones). Memory is `O(zones + drones)`.
+* Planning replays a **bounded** window of drones per candidate route, so
+  `plan()` is `O(drones · k · window · turns)` — linear in the fleet size.
+  1000 drones plan and run in ~0.5 s; the 25-drone challenger, in ~0.25 s.
+* Routes are chosen **once**; the final simulation is a single pass.
+* Simulation: `O(turns · drones²)` worst case (one long single-file queue).
+  Memory is `O(zones + drones)`.
 
 ## Visual representation
 
@@ -121,24 +133,24 @@ the program stops with a `deadlock` error instead of looping forever.
 
 ## Performance
 
-Turns for the provided maps (reference targets from the subject in brackets):
+Turns for the provided maps against the subject's reference targets:
 
-| map                              | drones | turns | target |
-|----------------------------------|:------:|:-----:|:------:|
-| easy/01_linear_path              |   2    |   4   |  ≤ 6   |
-| easy/02_simple_fork              |   4    |   4   |  ≤ 6   |
-| easy/03_basic_capacity           |   4    |   4   |  ≤ 8   |
-| medium/01_dead_end_trap          |   5    |   8   |  ≤ 15  |
-| medium/02_circular_loop          |   6    |  15   |  ≤ 20  |
-| medium/03_priority_puzzle        |   5    |   7   |  ≤ 12  |
-| hard/01_maze_nightmare           |   8    |  13   |  ≤ 45  |
-| hard/02_capacity_hell            |  12    |  16   |  ≤ 60  |
-| hard/03_ultimate_challenge       |  15    |  26   |  ≤ 35  |
-| challenger/01_the_impossible_dream |  25  |  67   | (45, optional) |
+| map                               | drones | turns | target | met |
+|-----------------------------------|:------:|:-----:|:------:|:---:|
+| easy/01_linear_path               |   2    |   4   |  ≤ 6   |  ✓  |
+| easy/02_simple_fork               |   4    |   4   |  ≤ 6   |  ✓  |
+| easy/03_basic_capacity            |   4    |   4   |  ≤ 8   |  ✓  |
+| medium/01_dead_end_trap           |   5    |   8   |  ≤ 15  |  ✓  |
+| medium/02_circular_loop           |   6    |  15   |  ≤ 20  |  ✓  |
+| medium/03_priority_puzzle         |   5    |   7   |  ≤ 12  |  ✓  |
+| hard/01_maze_nightmare            |   8    |  13   |  ≤ 45  |  ✓  |
+| hard/02_capacity_hell             |  12    |  16   |  ≤ 60  |  ✓  |
+| hard/03_ultimate_challenge        |  15    |  26   |  ≤ 35  |  ✓  |
+| challenger/01_the_impossible_dream |  25   |  43   | beat 45 | ✓ |
 
-Every graded map meets its reference target. The optional challenger map is not
-optimised for — the fixed-route model queues its 25 drones through the map's
-single-file gates rather than interleaving them.
+Both **bonus** targets are met: every provided map is at or under its reference
+target, and the challenger map is solved in **43 turns**, beating the reference
+record of 45.
 
 ## Project layout
 
@@ -146,10 +158,13 @@ single-file gates rather than interleaving them.
 src/
   __main__.py     CLI entry point: python3 -m src <map_file>
   graph.py        Zone, Connection, Graph + the map-file parser
-  pathfinder.py   Pathfinder: Dijkstra, Yen, route spreading, drone assignment
+  pathfinder.py   Pathfinder: Dijkstra, Yen, route filtering, drone assignment
   simulation.py   Drone, Simulation: the turn-by-turn loop and coloured recap
 maps/             example maps (easy / medium / hard / challenger)
 ```
+
+`Pathfinder` calls `Simulation` as a black-box oracle while planning ("how soon
+would this drone arrive on that route?"), so the module depends on `simulation`.
 
 ## Resources
 
@@ -161,8 +176,10 @@ maps/             example maps (easy / medium / hard / challenger)
 ### Use of AI
 
 AI was used as a pair-programming aid for: comparing path-planning strategies
-(time-expanded search vs. Dijkstra + Yen) and settling on the simplest one that
-still meets the targets; drafting the first version of Yen's algorithm and the
+(time-expanded search vs. Dijkstra + Yen) and settling on Dijkstra + Yen with a
+wait-based simulation; drafting the first version of Yen's algorithm and the
 turn-scheduling loop, which were then read through, tested and rewritten by
-hand; and generating the throwaway map files used to check parser error
+hand; working out why the challenger map stalled (the route filter was
+collapsing every route onto one corridor) and moving to the simulate-and-place
+assignment; and generating the throwaway map files used to check parser error
 handling. Every line committed is understood and can be explained.

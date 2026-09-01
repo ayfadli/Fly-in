@@ -2,10 +2,12 @@
 
 import sys
 from collections import defaultdict
+from collections.abc import Iterator
 
 from src.graph import Graph, ZoneType
 
 Route = list[str]
+Move = tuple[int, str]
 
 _ANSI = {"red": 31, "crimson": 31, "maroon": 31, "darkred": 31, "green": 32,
          "lime": 32, "yellow": 33, "orange": 33, "gold": 33, "brown": 33,
@@ -47,14 +49,10 @@ class Simulation:
         self.drones = [Drone(i, route) for i, route in enumerate(plan, 1)]
 
     def run(self, show: bool = True) -> int:
-        """Run until every drone is delivered; return the number of turns."""
+        """Play every drone to the end, printing each turn; return the turn count."""
         turn = 0
-        while not all(drone.done for drone in self.drones):
-            turn += 1
-            moves = self._step(turn)
-            if not moves:
-                raise RuntimeError(f"deadlock at turn {turn}: no drone can move")
-            print(" ".join(f"D{i}-{where}" for i, where in moves))
+        for turn, moves in self._play():
+            print(" ".join(f"D{i}-{dest}" for i, dest in moves))
             if show:
                 self._recap(turn, moves)
         if show:
@@ -62,7 +60,26 @@ class Simulation:
                         "green"), file=sys.stderr)
         return turn
 
-    def _step(self, turn: int) -> list[tuple[int, str]]:
+    def arrival_of_last(self) -> int:
+        """Turn the most recently added drone is delivered (used when planning)."""
+        target = self.drones[-1]
+        last = 0
+        for last, _ in self._play():
+            if target.done:
+                break
+        return last
+
+    def _play(self) -> Iterator[tuple[int, list[Move]]]:
+        """Yield `(turn, moves)` for each turn until every drone is delivered."""
+        turn = 0
+        while not all(drone.done for drone in self.drones):
+            turn += 1
+            moves = self._step(turn)
+            if not moves:
+                raise RuntimeError(f"deadlock at turn {turn}: no drone can move")
+            yield turn, moves
+
+    def _step(self, turn: int) -> list[Move]:
         """Advance every drone that can move; return its (id, destination) pairs."""
         zone_count: defaultdict[str, int] = defaultdict(int)
         for drone in self.drones:
@@ -104,7 +121,7 @@ class Simulation:
                     moves[drone.id] = drone.at
         return sorted(moves.items())
 
-    def _recap(self, turn: int, moves: list[tuple[int, str]]) -> None:
+    def _recap(self, turn: int, moves: list[Move]) -> None:
         """Print a coloured one-line summary of the turn to stderr."""
         painted = " ".join(
             f"D{i}-{paint(dest, self._color(dest))}" for i, dest in moves)
