@@ -2,10 +2,10 @@ install:
 	uv pip install -r requirements.txt
 
 run:
-	uv run python3 -m src.main $(ARGS)
+	uv run python3 -m src $(ARGS)
 
 debug:
-	uv run python3 -m pdb -m src.main $(ARGS)
+	uv run python3 -m pdb -m src $(ARGS)
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -r {} +
