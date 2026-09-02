@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by `<your-42-login>`.*
+*This project has been created as part of the 42 curriculum by `ayfadli`.*
 
 # Fly-in
 
@@ -90,15 +90,7 @@ route in turn, **replay the last few drones of the fleet** (`_TRIAL_WINDOW`),
 and keep the route on which this drone reaches the end earliest. This is a
 greedy insertion heuristic: it naturally fills short routes first, then spreads
 onto slower parallel routes exactly when doing so would help — including
-splitting the fleet across several restricted corridors, which is what lets the
-challenger map beat its reference record.
-
-### 5. Simulation (`Simulation._step`)
-
-Capacity is **not** handled by the planner; it lives here, as a plain "is there
-room to step forward? if not, wait" check — much easier to follow than a single
-all-knowing search. Each turn:
-
+splitting the fleet across several src/pathfinder.py
 1. every drone **mid-crossing** of a restricted connection **lands** (it must —
    it cannot linger on a connection);
 2. then, repeatedly, any waiting drone **steps forward** if its next zone and
@@ -182,4 +174,4 @@ turn-scheduling loop, which were then read through, tested and rewritten by
 hand; working out why the challenger map stalled (the route filter was
 collapsing every route onto one corridor) and moving to the simulate-and-place
 assignment; and generating the throwaway map files used to check parser error
-handling. Every line committed is understood and can be explained.
+handling. Every line committed is un[text](src/pathfinder.py)derstood and can be explained.
