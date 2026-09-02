@@ -1,4 +1,4 @@
-"""Find candidate routes with Dijkstra + Yen, then give each drone the best one."""
+"""Find routes with Dijkstra + Yen, then give each drone the best one."""
 
 import heapq
 from itertools import count
@@ -20,21 +20,22 @@ class Pathfinder:
         self.graph = graph
 
     def plan(self) -> list[Route]:
-        """Return the route each drone should fly (list index = drone id - 1)."""
+        """Return the route each drone flies (list index = drone id - 1)."""
         routes = self._pick_routes(self._yen(_YEN_ROUTES))
         plan: list[Route] = []
         for _ in range(self.graph.nb_drones):
             plan.append(self._best_next_route(plan, routes))
         return plan
 
-    def _best_next_route(self, plan: list[Route], routes: list[Route]) -> Route:
-        """Add one more drone on each candidate route; keep the earliest arrival."""
+    def _best_next_route(
+            self, plan: list[Route], routes: list[Route]) -> Route:
+        """Add a drone on each candidate route; keep the earliest arrival."""
         best_route, best_arrival = routes[0], None
         for route in routes:
             trial = (plan + [route])[-_TRIAL_WINDOW:]
             try:
                 arrival = Simulation(self.graph, trial).arrival_of_last()
-            except RuntimeError:            # this route jams the fleet: skip it
+            except RuntimeError:            # this route jams the fleet: skip
                 continue
             if best_arrival is None or arrival < best_arrival:
                 best_route, best_arrival = route, arrival
@@ -90,17 +91,19 @@ class Pathfinder:
                 if spur is None:
                     continue
                 whole = root[:-1] + spur
-                if whole not in found and all(whole != c for _, _, c in candidates):
+                if whole not in found and all(
+                        whole != c for _, _, c in candidates):
                     heapq.heappush(
-                        candidates, (self._turns(whole), next(tiebreak), whole))
+                        candidates,
+                        (self._turns(whole), next(tiebreak), whole))
             if not candidates:
                 break
             found.append(heapq.heappop(candidates)[2])
         return found
 
     def _pick_routes(self, routes: list[Route]) -> list[Route]:
-        """Drop a route that would fly an edge against the traffic already going
-        the other way on a kept route -- head-on flow is what can deadlock."""
+        """Drop a route that would fly an edge against the traffic already
+        going the other way on a kept route -- head-on flow can deadlock."""
         kept: list[Route] = []
         used: set[tuple[str, str]] = set()
         for route in routes:

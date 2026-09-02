@@ -36,7 +36,8 @@ class Zone:
     @property
     def weight(self) -> int:
         """Router cost to enter; priority zones are made a little cheaper."""
-        return {ZoneType.RESTRICTED: 20, ZoneType.PRIORITY: 9}.get(self.kind, 10)
+        return {ZoneType.RESTRICTED: 20, ZoneType.PRIORITY: 9}.get(
+            self.kind, 10)
 
     @property
     def capacity(self) -> int:
@@ -127,7 +128,8 @@ class MapParser:
         if not self._drones_done:
             if not line.startswith("nb_drones:"):
                 raise ParseError("first line must be 'nb_drones: <count>'")
-            self.graph.nb_drones = self._int(line.split(":", 1)[1], "nb_drones")
+            self.graph.nb_drones = self._int(
+                line.split(":", 1)[1], "nb_drones")
             self._drones_done = True
         elif line.startswith(("start_hub:", "end_hub:", "hub:")):
             self._read_zone(line)
@@ -159,7 +161,12 @@ class MapParser:
         if (start and self.graph.start) or (end and self.graph.end):
             raise ParseError(f"{head} is already defined")
 
-        max_drones = self._int(meta.get("max_drones", "1"), "max_drones")
+        # max_drones is ignored on the start/end zones (they are unlimited),
+        # so any value there -- even an invalid one -- is not an error.
+        if start or end:
+            max_drones = 1
+        else:
+            max_drones = self._int(meta.get("max_drones", "1"), "max_drones")
         self.graph.add_zone(
             Zone(name, x, y, kind, meta.get("color"), max_drones, start, end))
 
@@ -175,7 +182,8 @@ class MapParser:
             raise ParseError(f"duplicate connection {pair[0]}-{pair[1]}")
 
         meta = self._meta(line, ("max_link_capacity",))
-        capacity = self._int(meta.get("max_link_capacity", "1"), "max_link_capacity")
+        capacity = self._int(
+            meta.get("max_link_capacity", "1"), "max_link_capacity")
         self.graph.add_link(Connection(pair[0], pair[1], capacity))
 
     @staticmethod
@@ -198,5 +206,6 @@ class MapParser:
         """Parse a strictly-positive integer, or raise `ParseError`."""
         text = text.strip()
         if not text.isdigit() or int(text) <= 0:
-            raise ParseError(f"{label} must be a positive integer, got {text!r}")
+            raise ParseError(
+                f"{label} must be a positive integer, got {text!r}")
         return int(text)

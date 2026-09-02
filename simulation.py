@@ -49,7 +49,7 @@ class Simulation:
         self.drones = [Drone(i, route) for i, route in enumerate(plan, 1)]
 
     def run(self, show: bool = True) -> int:
-        """Play every drone to the end, printing each turn; return the turn count."""
+        """Play every drone to the end, printing turns; return the count."""
         turn = 0
         for turn, moves in self._play():
             print(" ".join(f"D{i}-{dest}" for i, dest in moves))
@@ -61,7 +61,7 @@ class Simulation:
         return turn
 
     def arrival_of_last(self) -> int:
-        """Turn the most recently added drone is delivered (used when planning)."""
+        """Turn the most recently added drone lands (used when planning)."""
         target = self.drones[-1]
         last = 0
         for last, _ in self._play():
@@ -70,26 +70,28 @@ class Simulation:
         return last
 
     def _play(self) -> Iterator[tuple[int, list[Move]]]:
-        """Yield `(turn, moves)` for each turn until every drone is delivered."""
+        """Yield `(turn, moves)` for each turn until all drones land."""
         turn = 0
         while not all(drone.done for drone in self.drones):
             turn += 1
             moves = self._step(turn)
             if not moves:
-                raise RuntimeError(f"deadlock at turn {turn}: no drone can move")
+                raise RuntimeError(
+                    f"deadlock at turn {turn}: no drone can move")
             yield turn, moves
 
     def _step(self, turn: int) -> list[Move]:
-        """Advance every drone that can move; return its (id, destination) pairs."""
+        """Advance every drone that can move; return (id, dest) pairs."""
         zone_count: defaultdict[str, int] = defaultdict(int)
         for drone in self.drones:
             if not drone.done:
-                target = drone.route[drone.step + 1] if drone.flying else drone.at
+                target = (drone.route[drone.step + 1]
+                          if drone.flying else drone.at)
                 zone_count[target] += 1
         link_count: defaultdict[str, int] = defaultdict(int)
         moves: dict[int, str] = {}
 
-        for drone in self.drones:            # drones mid-crossing must land now
+        for drone in self.drones:            # drones mid-crossing land now
             if drone.flying:
                 drone.step += 1
                 drone.flying = False
@@ -98,9 +100,11 @@ class Simulation:
                 moves[drone.id] = drone.at
 
         moving = True
-        while moving:                        # let the rest step forward, then repeat
+        while moving:                        # step the rest forward, repeat
             moving = False
-            for drone in sorted(self.drones, key=lambda d: len(d.route) - d.step):
+            ordered = sorted(
+                self.drones, key=lambda d: len(d.route) - d.step)
+            for drone in ordered:
                 if drone.done or drone.id in moves or drone.flying:
                     continue
                 nxt = drone.route[drone.step + 1]
@@ -114,7 +118,7 @@ class Simulation:
                 link_count[link.name] += 1
                 moving = True
                 if zone.kind is ZoneType.RESTRICTED:
-                    drone.flying = True      # arrives next turn (2-turn crossing)
+                    drone.flying = True      # lands next turn (2-turn cross)
                     moves[drone.id] = link.name
                 else:
                     drone.step += 1
