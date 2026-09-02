@@ -3,8 +3,8 @@
 import heapq
 from itertools import count
 
-from src.graph import Graph, ZoneType
-from src.simulation import Simulation
+from graph import Graph, ZoneType
+from simulation import Simulation
 
 Route = list[str]
 

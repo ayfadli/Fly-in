@@ -2,9 +2,9 @@
 
 import sys
 
-from src.graph import MapParser, ParseError
-from src.pathfinder import Pathfinder
-from src.simulation import Simulation
+from graph import MapParser, ParseError
+from pathfinder import Pathfinder
+from simulation import Simulation
 
 
 def main() -> None:

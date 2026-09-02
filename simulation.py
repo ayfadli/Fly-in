@@ -4,7 +4,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Iterator
 
-from src.graph import Graph, ZoneType
+from graph import Graph, ZoneType
 
 Route = list[str]
 Move = tuple[int, str]
